@@ -7,6 +7,7 @@ from pydantic import BaseModel, HttpUrl
 from typing import List, Optional
 import logging
 from urllib.parse import unquote
+from datetime import datetime
 from database import Database
 
 # Configure logging
@@ -188,6 +189,32 @@ async def scrape_specific_profile(url: str):
         raise
     except Exception as e:
         logger.error(f"Error scraping profile {url}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/run-check", response_model=dict)
+async def run_monitoring_check():
+    """Run a complete monitoring check on all profiles"""
+    try:
+        logger.info("🚀 Starting full monitoring check via API...")
+
+        # Import the monitoring functionality
+        from main import LinkedInMonitor
+        import asyncio
+
+        # Create monitor instance and run check
+        monitor = LinkedInMonitor()
+        await monitor.run_check()
+
+        logger.info("✅ Monitoring check completed successfully")
+
+        return {
+            "success": True,
+            "message": "Monitoring check completed successfully",
+            "timestamp": str(datetime.now())
+        }
+
+    except Exception as e:
+        logger.error(f"Error running monitoring check: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
