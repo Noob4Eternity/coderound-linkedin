@@ -1,0 +1,21 @@
+# Core dependencies with verified compatible versions
+playwright>=1.40.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+schedule>=1.2.0
+
+# Configuration management
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Database (Supabase/PostgreSQL)
+psycopg2-binary>=2.9.0
+supabase>=2.0.0
+
+# Anti-detection (optional but recommended)
+fake-useragent>=1.4.0
+
+# FastAPI server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
