@@ -525,14 +525,6 @@ class LinkedInScraper:
                 experience_items = soup.select(SELECTORS["fallback_experience"])
                 logger.info(f"  Strategy 3 - Found {len(experience_items)} experience items")
 
-            # If still no items, try to find experience section and extract manually
-            if not experience_items:
-                exp_section = soup.select_one(SELECTORS["experience_section"])
-                if exp_section:
-                    # Look for any list items within experience section
-                    experience_items = exp_section.select("li, div.pv-entity__summary-info")
-                    logger.info(f"  Manual search - Found {len(experience_items)} experience items")
-
             # Filter out items that look like posts or activities
             filtered_items = []
             for item in experience_items:
@@ -591,73 +583,76 @@ class LinkedInScraper:
             experience_items = filtered_items
             logger.info(f"  Filtered to {len(experience_items)} relevant experience items")
 
-            for i, item in enumerate(experience_items[:5], 1):  # Get first 5 positions
-                job_title = None
-                company = None
-
-                # Try multiple selectors for job title
-                title_selectors = [
-                    SELECTORS["job_title"],
-                    SELECTORS["alt_job_title"],
-                    SELECTORS["fallback_job_title"],
-                    "h3",  # Very basic fallback
-                    "span strong",  # Another fallback
-                ]
-
-                for selector in title_selectors:
-                    job_title_elem = item.select_one(selector)
-                    if job_title_elem:
-                        job_title = job_title_elem.get_text(strip=True)
-                        if job_title and len(job_title) > 2:  # Avoid empty/short text
-                            break
-
-                # Try multiple selectors for company
-                company_selectors = [
-                    SELECTORS["company_name"],
-                    SELECTORS["alt_company_name"],
-                    SELECTORS["fallback_company"],
-                    "p",  # Basic fallback
-                    "span.t-14",  # Another fallback
-                ]
-
-                for selector in company_selectors:
-                    company_elem = item.select_one(selector)
-                    if company_elem:
-                        company = company_elem.get_text(strip=True)
-                        if company and len(company) > 2:  # Avoid empty/short text
-                            break
-
-                # Clean up the extracted text
-                if job_title:
-                    # Remove extra whitespace and clean up
-                    job_title = ' '.join(job_title.split())
-                    # Skip if it looks like a date or location only
-                    if any(skip_word in job_title.lower() for skip_word in ['months', 'years']):
-                        job_title = None
-
-                if company:
-                    company = ' '.join(company.split())
-                    # Remove duplicates that might occur from aria-hidden spans
-                    if '·' in company:
-                        parts = company.split('·')
-                        # Take the first meaningful part
-                        company = parts[0].strip()
-                        if len(company) < 3 and len(parts) > 1:
-                            company = parts[1].strip()
-                    # Skip if it looks like a date only
-                    if any(skip_word in company.lower() for skip_word in ['months', 'years']):
-                        company = None
-
-                if job_title:
-                    profile_data["experience"].append({
-                        "title": job_title,
-                        "company": company or "Unknown"
-                    })
-                    logger.info(f"  ✓ Position {i}: {job_title} at {company or 'Unknown'}")
+            # Process experience items, handling nested roles
+            for i, item in enumerate(experience_items[:10], 1):  # Get first 10 positions
+                # Check if this item has nested roles (multiple positions at same company)
+                nested_roles = item.select('ul li')
+                
+                if nested_roles:
+                    # This is a company with multiple roles
+                    # Extract company name from the main item
+                    company_spans = item.select('span[aria-hidden="true"]')
+                    company_name = None
+                    if company_spans:
+                        # Find the span that contains the company name (not dates, not job titles)
+                        for span in company_spans:
+                            span_text = span.get_text().strip()
+                            # Skip if it looks like a duration or date
+                            if not any(skip_word in span_text.lower() for skip_word in ['yrs', 'mos', 'years', 'months', 'present', 'current', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec', 'jan', 'feb', 'mar', 'apr', 'may']):
+                                # Skip if it looks like a job title (contains job indicators)
+                                has_job_words = any(job_word in span_text.lower() for job_word in [
+                                    'president', 'manager', 'director', 'head', 'member', 'intern'
+                                ])
+                                if not has_job_words and len(span_text) > 3:
+                                    company_name = span_text
+                                    break
+                    
+                    # Process each nested role
+                    for role_item in nested_roles:
+                        role_spans = role_item.select('span[aria-hidden="true"]')
+                        if role_spans:
+                            job_title = role_spans[0].get_text().strip()
+                            
+                            # Clean up the job title
+                            if job_title:
+                                job_title = ' '.join(job_title.split())
+                                
+                            if job_title and company_name:
+                                profile_data["experience"].append({
+                                    "title": job_title,
+                                    "company": company_name
+                                })
+                                logger.info(f"  ✓ Position {len(profile_data['experience'])}: {job_title} at {company_name}")
                 else:
-                    logger.debug(f"  ✗ Could not extract job title from item {i}")
-            
-            # Set current position (first in experience list)
+                    # This is a single role entry - use aria-hidden spans
+                    aria_spans = item.select('span[aria-hidden="true"]')
+                    
+                    if len(aria_spans) >= 2:
+                        # Span 1: Job title, Span 2: Company name
+                        job_title = aria_spans[0].get_text().strip()
+                        company = aria_spans[1].get_text().strip()
+                        
+                        # Clean up the extracted text
+                        if job_title:
+                            job_title = ' '.join(job_title.split())
+                            
+                        if company:
+                            company = ' '.join(company.split())
+                            
+                        # Skip if company looks like a date
+                        if company and any(skip_word in company.lower() for skip_word in ['months', 'years', 'present', 'current']):
+                            company = None
+                            
+                        if job_title and company:
+                            profile_data["experience"].append({
+                                "title": job_title,
+                                "company": company
+                            })
+                            logger.info(f"  ✓ Position {len(profile_data['experience'])}: {job_title} at {company}")
+                        else:
+                            logger.debug(f"  ✗ Could not extract valid job title/company from single role item")
+                    else:
+                        logger.debug(f"  ✗ Not enough aria-hidden spans for single role item")            # Set current position (first in experience list)
             if profile_data["experience"]:
                 profile_data["current_position"] = profile_data["experience"][0]["title"]
                 profile_data["current_company"] = profile_data["experience"][0]["company"]

@@ -83,11 +83,11 @@ SELECTORS = {
     "profile_name": "h1.text-heading-xlarge",
     "profile_headline": "div.text-body-medium.break-words",
 
-    # Experience section - more specific targeting
-    "experience_section": "section[data-section='experience']",
-    "experience_items": "li.SwMyfGYulRUEClwQVbSRKsXKgVQVHDFaUaMqk, li.MzjpHdcObydiKPkALjQSraktPAEXLhIfzk, section[data-section='experience'] li.artdeco-list__item",
+    # Experience section - updated for current LinkedIn structure (2025)
+    "experience_section": "section.artdeco-card.pv-profile-card.break-words.mt2",
+    "experience_items": "li.MzjpHdcObydiKPkALjQSraktPAEXLhIfzk, li.SwMyfGYulRUEClwQVbSRKsXKgVQVHDFaUaMqk",
     "job_title": "span[aria-hidden='true']",
-    "company_name": "span.t-14.t-normal span[aria-hidden='true']",
+    "company_name": "span[aria-hidden='true']",
 
     # Alternative selectors (fallback) - more specific
     "alt_experience_items": "div#experience div.pv-entity__summary-info",
